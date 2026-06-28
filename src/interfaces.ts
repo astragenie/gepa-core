@@ -86,12 +86,30 @@ export interface BudgetMeter {
 
 // Pluggable judge interface — `rubricScorer` takes one of these as a dep.
 // Consumer plugins pick per `gepa.config.json` `judge` block.
+//
+// FEAT-184 canonical shape (v0.2.0):
+//   - `tokens?: { in, out }` added to result — load-bearing for evals/cli.ts cost-attribution
+//     telemetry and Langfuse emission. Single-element rubric arrays are accepted as a
+//     degenerate case forever (see AC-5 in FEAT-184): pass `[oneString]` when porting a
+//     prose-rubric caller; never sentence-split the string.
+//   - `raw?: unknown` added to result — load-bearing for Langfuse debug emission (FEAT-169 SLICE-90).
+//   - `context?: { fixture?, promptId?, version? }` added to opts — carries Langfuse
+//     provenance fields through evaluate(); must not be dropped by adapters.
 export interface LLMJudge {
   evaluate(opts: {
     candidateOutput: unknown;
     expected: EvalCase;
     rubric: string[]; // criteria text shown to the judge model
     signal?: AbortSignal;
+    /**
+     * Langfuse / observability provenance fields.
+     * Adapters MUST forward this to their underlying call or telemetry; never drop it.
+     */
+    context?: {
+      fixture?: string;
+      promptId?: string;
+      version?: string;
+    };
   }): Promise<{
     pass: boolean;
     score: number; // 0..1 weighted sum of rubric subscores
@@ -99,6 +117,17 @@ export interface LLMJudge {
     rationale: string;
     cost_usd: number;
     latency_ms: number;
+    /**
+     * Token counts from the underlying model call.
+     * Load-bearing for evals/cli.ts cost-attribution telemetry.
+     * Optional because some adapters (claude-p subprocess) cannot surface token counts.
+     */
+    tokens?: { in: number; out: number };
+    /**
+     * Raw provider response — load-bearing for Langfuse debug emission.
+     * Optional because some adapters discard the raw response.
+     */
+    raw?: unknown;
   }>;
   describe(): { provider: string; model: string }; // for trial provenance
 }
