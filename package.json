@@ -1,6 +1,6 @@
 {
   "name": "@astragenie/gepa-core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "GEPA reflective prompt evolution toolkit — Pareto-rank prompt candidates, score with pluggable LLM judges, persist trials.",
   "license": "MIT",
   "type": "module",
