@@ -1,0 +1,107 @@
+name: Provider Peer-Dep Matrix
+
+# AC-8 (FEAT-185 SLICE-A): 3 OSes × 2 SDK states × 4 providers = 24 cells.
+# Each cell:
+#   without-sdk: asserts the provider imports successfully (native-fetch providers
+#                have no SDK dep; gemini/groq/ollama/generic-openai all use fetch).
+#   with-sdk: installs @google/generative-ai and smoke-instantiates all 4 providers.
+#
+# SLICE-109 will extend this to 36 cells when azure + bedrock providers are added.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/providers/**"
+      - ".github/workflows/peer-dep-matrix.yml"
+  pull_request:
+    paths:
+      - "src/providers/**"
+      - ".github/workflows/peer-dep-matrix.yml"
+  workflow_dispatch:
+
+jobs:
+  peer-dep-matrix:
+    name: "${{ matrix.provider }} / ${{ matrix.os }} / ${{ matrix.sdk-state }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        sdk-state: [without-sdk, with-sdk]
+        provider: [ollama, generic-openai, groq, gemini]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.0
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install optional @google/generative-ai SDK
+        if: matrix.sdk-state == 'with-sdk'
+        run: bun add @google/generative-ai@latest
+
+      # ------------------------------------------------------------------
+      # Provider smoke test — inline Bun script to avoid extra file churn.
+      # All 4 providers use native fetch; no SDK required for runtime.
+      # ------------------------------------------------------------------
+
+      - name: "Smoke: ollama"
+        if: matrix.provider == 'ollama'
+        shell: bash
+        run: |
+          bun run - <<'EOF'
+          import { OllamaJudge } from "./src/providers/ollama/index.ts";
+          const j = new OllamaJudge({ host: "http://localhost:11434", model: "llama3.3" });
+          const d = j.describe();
+          if (d.provider !== "ollama") throw new Error(`Wrong provider: ${d.provider}`);
+          console.log("[PASS] ollama smoke:", JSON.stringify(d));
+          EOF
+
+      - name: "Smoke: generic-openai"
+        if: matrix.provider == 'generic-openai'
+        shell: bash
+        run: |
+          bun run - <<'EOF'
+          import { GenericOpenAIJudge } from "./src/providers/generic-openai/index.ts";
+          const j = new GenericOpenAIJudge({ baseUrl: "https://api.openai.com", apiKey: "sk-test", model: "gpt-4o-mini" });
+          const d = j.describe();
+          if (d.provider !== "generic-openai") throw new Error(`Wrong provider: ${d.provider}`);
+          console.log("[PASS] generic-openai smoke:", JSON.stringify(d));
+          EOF
+
+      - name: "Smoke: groq"
+        if: matrix.provider == 'groq'
+        shell: bash
+        run: |
+          bun run - <<'EOF'
+          import { GroqJudge } from "./src/providers/groq/index.ts";
+          const j = new GroqJudge({ apiKey: "gsk_test" });
+          const d = j.describe();
+          if (d.provider !== "groq") throw new Error(`Wrong provider: ${d.provider}`);
+          console.log("[PASS] groq smoke:", JSON.stringify(d));
+          EOF
+
+      - name: "Smoke: gemini"
+        if: matrix.provider == 'gemini'
+        shell: bash
+        run: |
+          bun run - <<'EOF'
+          import { GeminiJudge, assertGeminiSdkInstalled } from "./src/providers/gemini/index.ts";
+          // Guard is a no-op for the native-fetch variant.
+          assertGeminiSdkInstalled();
+          const j = new GeminiJudge({ apiKey: "AIza_test" });
+          const d = j.describe();
+          if (d.provider !== "gemini") throw new Error(`Wrong provider: ${d.provider}`);
+          console.log("[PASS] gemini smoke:", JSON.stringify(d));
+          EOF
+
+      # ------------------------------------------------------------------
+      # AC-2: no process.env reads in moved providers
+      # ------------------------------------------------------------------
+      - name: "AC-2: check-no-env-reads"
+        run: bun run scripts/check-no-env-reads.ts

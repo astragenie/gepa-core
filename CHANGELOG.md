@@ -2,6 +2,67 @@
 
 All notable changes to `@astragenie/gepa-core` follow semantic versioning.
 
+## 0.3.0 (2026-06-29)
+
+**MINOR** — purely additive. Zero breaking changes to the existing `"."` entry
+point. Consumers pinned to `^0.2.1` resolve this version automatically.
+
+### Added
+
+Four new discrete entry points under `providers/`:
+
+| Entry point | Class | Use case |
+|---|---|---|
+| `@astragenie/gepa-core/providers/ollama` | `OllamaJudge` | Local/offline judge via Ollama /api/chat |
+| `@astragenie/gepa-core/providers/generic-openai` | `GenericOpenAIJudge` | Any /v1/chat/completions-compatible API |
+| `@astragenie/gepa-core/providers/groq` | `GroqJudge` | Groq free-tier judge (extends GenericOpenAIJudge) |
+| `@astragenie/gepa-core/providers/gemini` | `GeminiJudge` | Google Gemini via native fetch |
+
+All four providers:
+- Implement `LLMJudge` from `@astragenie/gepa-core`.
+- Accept a typed config object in their constructors.
+- **Zero `process.env` access** — env reads belong in the consumer shim layer
+  (enforced by `scripts/check-no-env-reads.ts`; runs as `bun run check:no-env`).
+- Use native `fetch` — no npm runtime dependencies beyond `@astragenie/gepa-core` itself.
+
+### Naming rationale: `providers/` not `judges/`
+
+The directory is named `providers/` rather than `judges/` because these adapters
+serve dual roles: LLM judge evaluation AND candidate dispatch (FEAT-185 Option 1).
+The `LLMJudge` interface name is preserved for backward compat.
+
+### AC-9 callout: claude-p stays in dev-team
+
+`claude-p` is intentionally NOT included in this release. It remains in
+`dev-team/evals/providers/claude-p.ts` because:
+
+1. It launches `claude -p` as a subprocess — requires `node:child_process`.
+2. It has Windows-specific path handling.
+3. It carries FEAT-173 tempdir-isolation logic that is tightly coupled to
+   the dev-team runner environment.
+
+This is FEAT-185 Option 1 scope boundary. A future FEAT may relocate it.
+
+### Peer-dep table
+
+| Provider | Optional SDK | Install command | Notes |
+|---|---|---|---|
+| `providers/ollama` | none | — | Pure fetch, no SDK |
+| `providers/generic-openai` | none | — | Pure fetch, no SDK |
+| `providers/groq` | none | — | Pure fetch (OpenAI-compat) |
+| `providers/gemini` | `@google/generative-ai` | `npm install @google/generative-ai` | Optional; provider uses native fetch by default |
+
+The `@google/generative-ai` package is listed in `peerDependenciesMeta` as
+optional. The `GeminiJudge` implementation uses native fetch and does **not**
+require the SDK at runtime. The peer-dep listing exists so tooling can surface
+the install hint and the CI matrix can test SDK presence/absence.
+
+### CI scaffold
+
+`peer-dep-matrix` GitHub Actions job: 3 OSes × 2 SDK states × 4 providers
+= 24 matrix cells. Verifies constructibility and `describe()` round-trip per
+cell. SLICE-109 will extend to 36 cells when azure + bedrock providers are added.
+
 ## 0.2.1 (2026-06-29)
 
 **Republish, no content change.** Version `0.2.0` hit npm's 24-hour unpublish lockout

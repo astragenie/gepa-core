@@ -1,12 +1,16 @@
 {
   "name": "@astragenie/gepa-core",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "GEPA reflective prompt evolution toolkit — Pareto-rank prompt candidates, score with pluggable LLM judges, persist trials.",
   "license": "MIT",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./providers/ollama": "./src/providers/ollama/index.ts",
+    "./providers/generic-openai": "./src/providers/generic-openai/index.ts",
+    "./providers/groq": "./src/providers/groq/index.ts",
+    "./providers/gemini": "./src/providers/gemini/index.ts"
   },
   "engines": {
     "node": ">=22.6.0",
@@ -18,7 +22,8 @@
     "format:check": "biome format src tests",
     "typecheck": "tsc --noEmit",
     "test": "bun test --parallel --timeout 30000 tests/",
-    "semver:check": "bun run scripts/check-semver.ts"
+    "semver:check": "bun run scripts/check-semver.ts",
+    "check:no-env": "bun run scripts/check-no-env-reads.ts"
   },
   "dependencies": {
     "zod": "^3.23.0"
