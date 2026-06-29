@@ -27,6 +27,7 @@ export interface OllamaConfig {
 
 const DEFAULT_HOST = "http://localhost:11434";
 const DEFAULT_MODEL = "llama3.3";
+const DEFAULT_TEMPERATURE = 0.0;
 const DEFAULT_TIMEOUT_MS = 120_000;
 
 interface OllamaChatResponse {
@@ -73,11 +74,13 @@ async function callOllama(
 export class OllamaJudge implements LLMJudge {
   private readonly host: string;
   private readonly model: string;
+  private readonly temperature: number;
   private readonly timeoutMs: number;
 
   constructor(config?: OllamaConfig) {
     this.host = (config?.host ?? DEFAULT_HOST).replace(/\/$/, "");
     this.model = config?.model ?? DEFAULT_MODEL;
+    this.temperature = config?.temperature ?? DEFAULT_TEMPERATURE;
     this.timeoutMs = config?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
@@ -105,7 +108,12 @@ export class OllamaJudge implements LLMJudge {
     const url = `${this.host}/api/chat`;
     const data = await callOllama(
       url,
-      { model: this.model, messages: [{ role: "user", content: prompt }], stream: false },
+      {
+        model: this.model,
+        messages: [{ role: "user", content: prompt }],
+        stream: false,
+        options: { temperature: this.temperature },
+      },
       this.timeoutMs,
     );
 

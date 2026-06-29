@@ -2,6 +2,20 @@
 
 All notable changes to `@astragenie/gepa-core` follow semantic versioning.
 
+## 0.3.1 (2026-06-29)
+
+**PATCH** — wires `OllamaConfig.temperature` through to the Ollama `/api/chat`
+request body. Before 0.3.1 the field was declared on the interface but
+silently dropped on the way to the API (no instance storage, not in the body).
+
+### Fixed
+
+- `OllamaJudge`: `config.temperature` now lands in `body.options.temperature`
+  per the Ollama API spec. Default remains `0.0` so existing deterministic
+  callers see no behavior change. Found by `crew:inspector` on SLICE-108
+  review (2026-06-29). Regression test added in
+  `tests/providers/ollama.test.ts`.
+
 ## 0.3.0 (2026-06-29)
 
 **MINOR** — purely additive. Zero breaking changes to the existing `"."` entry

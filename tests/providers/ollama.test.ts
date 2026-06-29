@@ -77,4 +77,64 @@ describe("OllamaJudge — provider entry point (AC-1, FEAT-185)", () => {
       }),
     ).rejects.toThrow(/OllamaJudge/);
   });
+
+  // 0.3.1 patch: regression test for OllamaConfig.temperature wiring.
+  // Pre-0.3.1 the field was declared but never forwarded to /api/chat.
+  test("evaluate() forwards config.temperature to Ollama /api/chat body", async () => {
+    const originalFetch = globalThis.fetch;
+    let capturedBody: unknown = null;
+    globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+      capturedBody = JSON.parse(init?.body as string);
+      return new Response(
+        JSON.stringify({
+          message: { role: "assistant", content: "YES\nlooks good" },
+          done: true,
+          prompt_eval_count: 10,
+          eval_count: 5,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    try {
+      const judge = new OllamaJudge({ temperature: 0.7, model: "llama3.3" });
+      await judge.evaluate({
+        candidateOutput: "test",
+        expected: { id: "c1", input: {}, expected_output: {}, held_out: false },
+        rubric: ["test criterion"],
+      });
+      const body = capturedBody as { options?: { temperature?: number } };
+      expect(body.options?.temperature).toBe(0.7);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("evaluate() defaults temperature to 0.0 when not configured", async () => {
+    const originalFetch = globalThis.fetch;
+    let capturedBody: unknown = null;
+    globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+      capturedBody = JSON.parse(init?.body as string);
+      return new Response(
+        JSON.stringify({
+          message: { role: "assistant", content: "YES" },
+          done: true,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    try {
+      const judge = new OllamaJudge({ model: "llama3.3" });
+      await judge.evaluate({
+        candidateOutput: "test",
+        expected: { id: "c1", input: {}, expected_output: {}, held_out: false },
+        rubric: ["test criterion"],
+      });
+      const body = capturedBody as { options?: { temperature?: number } };
+      expect(body.options?.temperature).toBe(0.0);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
