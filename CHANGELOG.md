@@ -2,6 +2,15 @@
 
 All notable changes to `@astragenie/gepa-core` follow semantic versioning.
 
+## 0.2.1 (2026-06-29)
+
+**Republish, no content change.** Version `0.2.0` hit npm's 24-hour unpublish lockout
+(version slot reserved after early unpublish), blocking a fresh publish under the same
+number. `0.2.1` ships the identical source tree as the intended `0.2.0` payload.
+
+Also includes the `.gitattributes` LF pin (commit `7ab6592`) so Windows clones keep
+`bun run format:check` green.
+
 ## 0.2.0 (2026-06-28)
 
 **MAJOR** (pre-1.0 convention: `0.x → 0.y` is breaking when result fields are added that
