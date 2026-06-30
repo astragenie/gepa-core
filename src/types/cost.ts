@@ -43,3 +43,30 @@ export interface JudgeCost {
     tokens_saved?: number;
   };
 }
+
+/**
+ * Extract a canonical `JudgeCost` from an `LLMJudge.evaluate()` result.
+ *
+ * Bridge helper for FEAT-186 S2 — lets consumers feed an evaluate() result
+ * directly into `dailyCapMeter.record()` or into the per-slice cost-report
+ * renderer without restating the field map at every call site.
+ *
+ * Forward-compatible: as new optional fields land on the LLMJudge result
+ * shape (e.g. `raw`, `rubricScores`), this helper continues to project just
+ * the cost-related subset. Adapters that surface richer cost telemetry
+ * (token counts, cache outcomes) pass them through automatically.
+ */
+export function toJudgeCost(result: {
+  cost_usd: number;
+  latency_ms: number;
+  tokens?: { in: number; out: number };
+  cache?: { hit: boolean; tokens_saved?: number };
+}): JudgeCost {
+  const cost: JudgeCost = {
+    usd: result.cost_usd,
+    latency_ms: result.latency_ms,
+  };
+  if (result.tokens !== undefined) cost.tokens = result.tokens;
+  if (result.cache !== undefined) cost.cache = result.cache;
+  return cost;
+}

@@ -4,37 +4,57 @@ All notable changes to `@astragenie/gepa-core` follow semantic versioning.
 
 ## 0.4.0 (2026-06-30)
 
-**MINOR** — purely additive type export. Zero breaking changes to existing
-runtime exports. Consumers pinned to `^0.3.0` resolve this version
-automatically.
+**MINOR** — adds the cross-pipeline cost contract. Zero breaking changes;
+existing 0.3.x callers compile against this release without modification.
+Consumers pinned to `^0.3.0` resolve this version automatically.
 
-### Added
+### Added (FEAT-186 S1 — canonical cost shape)
 
-- `JudgeCost` type — canonical cost shape across all judge evaluations
-  (FEAT-186 S1). Fields: `usd: number`, `latency_ms: number`,
-  `tokens?: { in, out }`, `cache?: { hit, tokens_saved? }`. Both `tokens`
-  and `cache` MUST stay optional forever (locked by `tests/judge/judge-cost-shape.test.ts`)
-  so provider adapters that cannot surface a field (e.g. ollama has no
+- `JudgeCost` type — canonical cost shape across all judge evaluations.
+  Fields: `usd: number`, `latency_ms: number`, `tokens?: { in, out }`,
+  `cache?: { hit, tokens_saved? }`. Both `tokens` and `cache` MUST stay
+  optional forever (locked by `tests/judge/judge-cost-shape.test.ts`) so
+  provider adapters that cannot surface a field (e.g. ollama has no
   prompt cache; `claude-p` subprocess cannot surface tokens) leave the
   field unset rather than fabricate zeros.
+- `toJudgeCost(result)` helper — extracts canonical `JudgeCost` from an
+  `LLMJudge.evaluate()` result. Forward-compatible: as the LLMJudge
+  result shape grows, the helper continues to project just the cost
+  subset.
+
+### Changed (FEAT-186 S2 — dailyCapMeter cross-pipeline ingestion)
+
+- `BudgetMeter.record(reservationId, cost)` signature widened to accept
+  `number | JudgeCost`. Both call patterns are equivalent at the meter —
+  only `cost.usd` is consumed for accumulator math today. Adapters that
+  surface richer cost telemetry (`tokens`, `cache`) pass the full
+  `JudgeCost` so future observability extensions read them without
+  changing this signature. **Backward-compatible:** all 0.3.x callers
+  passing a plain `number` continue to work unchanged (covered by
+  existing `tests/budget/daily-cap-meter.test.ts`).
+- `dailyCapMeter` implementation updated to extract `usd` from either
+  shape via a `typeof cost === "number"` branch. Pure type widening; no
+  behavior change for `number` callers.
 
 ### Why this lands now
 
-Prerequisite for FEAT-183 wave-plan WAVE 1: `dailyCapMeter` (FEAT-186 S2)
-and per-slice cost report renderer (FEAT-186 S3) both ingest `JudgeCost`.
-SLICE-98 will start writing trials in this canonical shape. Without the
-type landed in advance, the consumer-side ingestion would diverge between
-the evals pipeline and the gepa pipeline — exactly the dual-cost-shape
-problem FEAT-186 was spun out to close.
+Prerequisite for FEAT-183 wave-plan WAVE 1. Without `JudgeCost` +
+meter-widening landed in advance of SLICE-98 starting to write trials in
+the canonical shape, the dev-team `dailyCapMeter` would read old-shape
+evals while the gepa pipeline writes new-shape — exactly the
+dual-cost-shape problem FEAT-186 was spun out of FEAT-185 to close.
 
 ### Not changed
 
 - `LLMJudge.evaluate()` return shape — unchanged. Still returns the flat
-  fields (`cost_usd`, `latency_ms`, `tokens?`) it has shipped since
-  0.2.0. Consumers that want the canonical `JudgeCost` shape will use a
-  `toJudgeCost(result)` helper added in S2.
-- `dailyCapMeter.record()` signature — unchanged. Widened in S2.
+  fields (`cost_usd`, `latency_ms`, `tokens?`) it has shipped since 0.2.0.
+  Consumers extract canonical shape via `toJudgeCost(result)`.
+- `BudgetMeter.reserve()` / `.release()` / `.spentToday()` / `.dailyCap()`
+  — all unchanged. S2 covers cost INGESTION only; full TTL/reserve/release
+  flow widening deferred.
 - All provider adapters (ollama, generic-openai, groq, gemini) — unchanged.
+- `sequentialRunner` — continues to pass `score.cost_usd` (a number) to
+  `meter.record()`. Backward-compatible call pattern retained.
 
 ## 0.3.1 (2026-06-29)
 
