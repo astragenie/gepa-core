@@ -44,6 +44,29 @@ the canonical shape, the dev-team `dailyCapMeter` would read old-shape
 evals while the gepa pipeline writes new-shape — exactly the
 dual-cost-shape problem FEAT-186 was spun out of FEAT-185 to close.
 
+### Added (SLICE-100 — rubric scoring + corpus validators)
+
+- `rubricScorer(judge: LLMJudge, opts?)` — Scorer factory that wraps an
+  LLMJudge into the `Scorer` interface. Breaks the scorer-circularity
+  that blocked optimizing inspector/verifier/architect (per design spec
+  concern C1). Propagates `cost_usd` + `latency_ms` from the judge
+  evaluation directly into the `ScoreResult`. Retries on malformed
+  scores (NaN, out-of-range) per AC-5 — default 1 retry; after retries
+  exhausted returns `pass:false / score:0 / rationale:"judge_malformed"`
+  with the trial PRESERVED (never dropped).
+- `validateTrialCorpus(corpusPath, opts?)` — scans a trial JSONL file
+  for integrity issues. Detects torn lines (truncated mid-JSON OR
+  schema-fail), duplicate `trial_id` collisions, agents not in a
+  `knownAgents` set (or appearing only once when set omitted), and
+  trials missing required metric fields. Returns a `ValidationReport`
+  with counts + offending IDs.
+- `detectEvalDrift(trials, heldOutPassRate, opts?)` and
+  `detectEvalDriftFromSplits(train, heldOut, opts?)` — compare train
+  vs held-out pass rates and flag drift when |delta| > threshold.
+  Default threshold 0.10 (10pp). Default minimum sample size 5 per
+  split — drift forced `false` for tiny samples to avoid noise on the
+  first few trials.
+
 ### Not changed
 
 - `LLMJudge.evaluate()` return shape — unchanged. Still returns the flat
