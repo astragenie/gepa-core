@@ -44,6 +44,27 @@ the canonical shape, the dev-team `dailyCapMeter` would read old-shape
 evals while the gepa pipeline writes new-shape — exactly the
 dual-cost-shape problem FEAT-186 was spun out of FEAT-185 to close.
 
+### Added (SLICE-101 — per-agent judge resolution + rubric loader + PII scrubber)
+
+- `resolveJudge(config, agent, registry, opts?)` — per-agent judge factory.
+  Looks up `judge_per_agent[<agent>]` first; falls back to top-level
+  `judge` block. Caller supplies a `JudgeRegistry` mapping provider name
+  to factory function, so resolveJudge stays tree-shake-friendly (each
+  provider lives at its own package entry point). Companion
+  `resolveJudgeConfig(config, agent)` exposes the resolved flat config
+  for callers that want to inspect without instantiating.
+- `redactRationale(text, opts?)` — PII / secret scrubber for judge
+  rationale strings before persistence. Catches OpenAI sk- keys,
+  Anthropic sk-ant- keys, GitHub PATs (`ghp_`, `github_pat_`), npm
+  tokens, Bearer / api-key headers, JWT-shape tokens, and email
+  addresses. Companion `containsSecretShape(text)` returns boolean for
+  test assertions. Operators can supply `additional` regex patterns.
+- `loadRubric(path, opts?)` / `parseRubricMarkdown(text)` — load a
+  per-agent rubric Markdown file into a `string[]` of criteria. Supports
+  two conventions: `## ` H2 headings (preferred) or top-level `- `
+  bullets when no headings present. H3+ ignored as sub-explanations.
+  `readFile` opt allows in-memory testing.
+
 ### Added (SLICE-100 — rubric scoring + corpus validators)
 
 - `rubricScorer(judge: LLMJudge, opts?)` — Scorer factory that wraps an

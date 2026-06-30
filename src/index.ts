@@ -29,3 +29,21 @@ export {
   type DriftReport,
   type DetectDriftOpts,
 } from "./validators/detect-eval-drift.ts";
+export {
+  resolveJudge,
+  resolveJudgeConfig,
+  type JudgeFactory,
+  type JudgeRegistry,
+  type ResolvedJudgeConfig,
+  type ResolveJudgeOpts,
+} from "./providers/resolve-judge.ts";
+export {
+  redactRationale,
+  containsSecretShape,
+  type RedactRationaleOpts,
+} from "./providers/redact-rationale.ts";
+export {
+  loadRubric,
+  parseRubricMarkdown,
+  type LoadRubricOpts,
+} from "./providers/load-rubric.ts";
