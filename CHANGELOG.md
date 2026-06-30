@@ -44,6 +44,25 @@ the canonical shape, the dev-team `dailyCapMeter` would read old-shape
 evals while the gepa pipeline writes new-shape — exactly the
 dual-cost-shape problem FEAT-186 was spun out of FEAT-185 to close.
 
+### Added (SLICE-109 — AzureOpenAIJudge provider)
+
+- `AzureOpenAIJudge` at `@astragenie/gepa-core/providers/azure-openai`.
+  Implements `LLMJudge` over Azure OpenAI Service with the standard
+  Azure quirks: `api-key` header (not Bearer), URL shape
+  `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=...`.
+- Constructor accepts a typed `AzureOpenAIConfig` (endpoint, deployment,
+  apiKey required; apiVersion + temperature + timeoutMs optional). **Zero
+  `process.env` reads** — env reads stay in the dev-team consumer shim,
+  matching the FEAT-185 SLICE-A pattern for the other 4 providers.
+- Native `fetch` — no runtime dependencies beyond gepa-core itself.
+- `package.json` exports map: adds `./providers/azure-openai` entry point.
+
+Bedrock is intentionally **NOT** included — per operator decision
+2026-06-30 (FEAT-183 wave-plan Q3), bedrock is dropped entirely until an
+external consumer requests it. The peer-dep CI matrix that previously
+anticipated bedrock at 36 cells extends to 30 cells (3 OSes × 2 SDK
+states × 5 providers — adding azure-openai).
+
 ### Added (SLICE-101 — per-agent judge resolution + rubric loader + PII scrubber)
 
 - `resolveJudge(config, agent, registry, opts?)` — per-agent judge factory.

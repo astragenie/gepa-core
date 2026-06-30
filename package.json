@@ -10,7 +10,8 @@
     "./providers/ollama": "./src/providers/ollama/index.ts",
     "./providers/generic-openai": "./src/providers/generic-openai/index.ts",
     "./providers/groq": "./src/providers/groq/index.ts",
-    "./providers/gemini": "./src/providers/gemini/index.ts"
+    "./providers/gemini": "./src/providers/gemini/index.ts",
+    "./providers/azure-openai": "./src/providers/azure-openai/index.ts"
   },
   "engines": {
     "node": ">=22.6.0",
