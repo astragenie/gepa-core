@@ -5,3 +5,11 @@ dist/
 .tap/
 coverage/
 .DS_Store
+
+# Machine-local Claude Code runtime artifacts (per dev-team .gitignore policy)
+.claude/logs/
+.claude/state/
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/hooks/
+.claude/worktrees/

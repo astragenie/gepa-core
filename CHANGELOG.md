@@ -2,6 +2,40 @@
 
 All notable changes to `@astragenie/gepa-core` follow semantic versioning.
 
+## 0.4.0 (2026-06-30)
+
+**MINOR** — purely additive type export. Zero breaking changes to existing
+runtime exports. Consumers pinned to `^0.3.0` resolve this version
+automatically.
+
+### Added
+
+- `JudgeCost` type — canonical cost shape across all judge evaluations
+  (FEAT-186 S1). Fields: `usd: number`, `latency_ms: number`,
+  `tokens?: { in, out }`, `cache?: { hit, tokens_saved? }`. Both `tokens`
+  and `cache` MUST stay optional forever (locked by `tests/judge/judge-cost-shape.test.ts`)
+  so provider adapters that cannot surface a field (e.g. ollama has no
+  prompt cache; `claude-p` subprocess cannot surface tokens) leave the
+  field unset rather than fabricate zeros.
+
+### Why this lands now
+
+Prerequisite for FEAT-183 wave-plan WAVE 1: `dailyCapMeter` (FEAT-186 S2)
+and per-slice cost report renderer (FEAT-186 S3) both ingest `JudgeCost`.
+SLICE-98 will start writing trials in this canonical shape. Without the
+type landed in advance, the consumer-side ingestion would diverge between
+the evals pipeline and the gepa pipeline — exactly the dual-cost-shape
+problem FEAT-186 was spun out to close.
+
+### Not changed
+
+- `LLMJudge.evaluate()` return shape — unchanged. Still returns the flat
+  fields (`cost_usd`, `latency_ms`, `tokens?`) it has shipped since
+  0.2.0. Consumers that want the canonical `JudgeCost` shape will use a
+  `toJudgeCost(result)` helper added in S2.
+- `dailyCapMeter.record()` signature — unchanged. Widened in S2.
+- All provider adapters (ollama, generic-openai, groq, gemini) — unchanged.
+
 ## 0.3.1 (2026-06-29)
 
 **PATCH** — wires `OllamaConfig.temperature` through to the Ollama `/api/chat`
