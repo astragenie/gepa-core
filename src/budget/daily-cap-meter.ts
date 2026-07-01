@@ -84,9 +84,13 @@ export function dailyCapMeter(capUsd: number, persistPath: string): BudgetMeter 
       };
     },
 
-    async record(reservationId, actualUsd) {
+    async record(reservationId, cost) {
       const state = pruneExpired(load(persistPath));
       state.reservations = state.reservations.filter((r) => r.id !== reservationId);
+      // FEAT-186 S2: accept both `number` (0.3.x callers) and JudgeCost (0.4.0+).
+      // Only `usd` is consumed for accumulator math today; richer fields (tokens, cache)
+      // are intentionally ignored at record-time — observability extensions read them later.
+      const actualUsd = typeof cost === "number" ? cost : cost.usd;
       state.spent += actualUsd;
       save(persistPath, state);
     },

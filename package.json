@@ -1,6 +1,6 @@
 {
   "name": "@astragenie/gepa-core",
-  "version": "0.3.1",
+  "version": "0.5.0",
   "description": "GEPA reflective prompt evolution toolkit — Pareto-rank prompt candidates, score with pluggable LLM judges, persist trials.",
   "license": "MIT",
   "type": "module",
@@ -10,7 +10,8 @@
     "./providers/ollama": "./src/providers/ollama/index.ts",
     "./providers/generic-openai": "./src/providers/generic-openai/index.ts",
     "./providers/groq": "./src/providers/groq/index.ts",
-    "./providers/gemini": "./src/providers/gemini/index.ts"
+    "./providers/gemini": "./src/providers/gemini/index.ts",
+    "./providers/azure-openai": "./src/providers/azure-openai/index.ts"
   },
   "engines": {
     "node": ">=22.6.0",

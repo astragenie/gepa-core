@@ -3,12 +3,13 @@ import type {
   Candidate,
   CrewArtifact,
   EvalCase,
+  JudgeCost,
   ScoreResult,
   Trial,
 } from "./types/index.ts";
 
 // Re-export imported types for downstream consumers that import from interfaces
-export type { AgentRun, Candidate, CrewArtifact, EvalCase, ScoreResult, Trial };
+export type { AgentRun, Candidate, CrewArtifact, EvalCase, JudgeCost, ScoreResult, Trial };
 
 export interface Scorer {
   score(run: AgentRun, expected: EvalCase): Promise<ScoreResult>;
@@ -73,7 +74,19 @@ export interface BudgetMeter {
     ok: boolean;
     remainingUsd: number;
   }>;
-  record(reservationId: string, actualUsd: number): Promise<void>;
+  /**
+   * Record actual cost against a reservation.
+   *
+   * FEAT-186 S2 (0.4.0) widened the signature to accept the canonical
+   * `JudgeCost` shape in addition to a plain `number`. Both call patterns
+   * are equivalent at the meter — only `cost.usd` is consumed for
+   * accumulator math today. Adapters that surface richer cost fields
+   * (`tokens`, `cache`) pass the full `JudgeCost` so future observability
+   * extensions can read it without changing this signature.
+   *
+   * Number form retained for backward compatibility with 0.3.x callers.
+   */
+  record(reservationId: string, cost: number | JudgeCost): Promise<void>;
   release(reservationId: string): Promise<void>; // explicit cancel
   spentToday(): Promise<number>;
   dailyCap(): number;

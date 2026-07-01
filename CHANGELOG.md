@@ -2,6 +2,123 @@
 
 All notable changes to `@astragenie/gepa-core` follow semantic versioning.
 
+## 0.5.0 (2026-07-01)
+
+**MINOR** — adds the cross-pipeline cost contract. Zero breaking changes;
+existing 0.3.x callers compile against this release without modification.
+Consumers pinned to `^0.3.0` resolve this version automatically.
+
+### Added (FEAT-186 S1 — canonical cost shape)
+
+- `JudgeCost` type — canonical cost shape across all judge evaluations.
+  Fields: `usd: number`, `latency_ms: number`, `tokens?: { in, out }`,
+  `cache?: { hit, tokens_saved? }`. Both `tokens` and `cache` MUST stay
+  optional forever (locked by `tests/judge/judge-cost-shape.test.ts`) so
+  provider adapters that cannot surface a field (e.g. ollama has no
+  prompt cache; `claude-p` subprocess cannot surface tokens) leave the
+  field unset rather than fabricate zeros.
+- `toJudgeCost(result)` helper — extracts canonical `JudgeCost` from an
+  `LLMJudge.evaluate()` result. Forward-compatible: as the LLMJudge
+  result shape grows, the helper continues to project just the cost
+  subset.
+
+### Changed (FEAT-186 S2 — dailyCapMeter cross-pipeline ingestion)
+
+- `BudgetMeter.record(reservationId, cost)` signature widened to accept
+  `number | JudgeCost`. Both call patterns are equivalent at the meter —
+  only `cost.usd` is consumed for accumulator math today. Adapters that
+  surface richer cost telemetry (`tokens`, `cache`) pass the full
+  `JudgeCost` so future observability extensions read them without
+  changing this signature. **Backward-compatible:** all 0.3.x callers
+  passing a plain `number` continue to work unchanged (covered by
+  existing `tests/budget/daily-cap-meter.test.ts`).
+- `dailyCapMeter` implementation updated to extract `usd` from either
+  shape via a `typeof cost === "number"` branch. Pure type widening; no
+  behavior change for `number` callers.
+
+### Why this lands now
+
+Prerequisite for FEAT-183 wave-plan WAVE 1. Without `JudgeCost` +
+meter-widening landed in advance of SLICE-98 starting to write trials in
+the canonical shape, the dev-team `dailyCapMeter` would read old-shape
+evals while the gepa pipeline writes new-shape — exactly the
+dual-cost-shape problem FEAT-186 was spun out of FEAT-185 to close.
+
+### Added (SLICE-109 — AzureOpenAIJudge provider)
+
+- `AzureOpenAIJudge` at `@astragenie/gepa-core/providers/azure-openai`.
+  Implements `LLMJudge` over Azure OpenAI Service with the standard
+  Azure quirks: `api-key` header (not Bearer), URL shape
+  `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=...`.
+- Constructor accepts a typed `AzureOpenAIConfig` (endpoint, deployment,
+  apiKey required; apiVersion + temperature + timeoutMs optional). **Zero
+  `process.env` reads** — env reads stay in the dev-team consumer shim,
+  matching the FEAT-185 SLICE-A pattern for the other 4 providers.
+- Native `fetch` — no runtime dependencies beyond gepa-core itself.
+- `package.json` exports map: adds `./providers/azure-openai` entry point.
+
+Bedrock is intentionally **NOT** included — per operator decision
+2026-06-30 (FEAT-183 wave-plan Q3), bedrock is dropped entirely until an
+external consumer requests it. The peer-dep CI matrix that previously
+anticipated bedrock at 36 cells extends to 30 cells (3 OSes × 2 SDK
+states × 5 providers — adding azure-openai).
+
+### Added (SLICE-101 — per-agent judge resolution + rubric loader + PII scrubber)
+
+- `resolveJudge(config, agent, registry, opts?)` — per-agent judge factory.
+  Looks up `judge_per_agent[<agent>]` first; falls back to top-level
+  `judge` block. Caller supplies a `JudgeRegistry` mapping provider name
+  to factory function, so resolveJudge stays tree-shake-friendly (each
+  provider lives at its own package entry point). Companion
+  `resolveJudgeConfig(config, agent)` exposes the resolved flat config
+  for callers that want to inspect without instantiating.
+- `redactRationale(text, opts?)` — PII / secret scrubber for judge
+  rationale strings before persistence. Catches OpenAI sk- keys,
+  Anthropic sk-ant- keys, GitHub PATs (`ghp_`, `github_pat_`), npm
+  tokens, Bearer / api-key headers, JWT-shape tokens, and email
+  addresses. Companion `containsSecretShape(text)` returns boolean for
+  test assertions. Operators can supply `additional` regex patterns.
+- `loadRubric(path, opts?)` / `parseRubricMarkdown(text)` — load a
+  per-agent rubric Markdown file into a `string[]` of criteria. Supports
+  two conventions: `## ` H2 headings (preferred) or top-level `- `
+  bullets when no headings present. H3+ ignored as sub-explanations.
+  `readFile` opt allows in-memory testing.
+
+### Added (SLICE-100 — rubric scoring + corpus validators)
+
+- `rubricScorer(judge: LLMJudge, opts?)` — Scorer factory that wraps an
+  LLMJudge into the `Scorer` interface. Breaks the scorer-circularity
+  that blocked optimizing inspector/verifier/architect (per design spec
+  concern C1). Propagates `cost_usd` + `latency_ms` from the judge
+  evaluation directly into the `ScoreResult`. Retries on malformed
+  scores (NaN, out-of-range) per AC-5 — default 1 retry; after retries
+  exhausted returns `pass:false / score:0 / rationale:"judge_malformed"`
+  with the trial PRESERVED (never dropped).
+- `validateTrialCorpus(corpusPath, opts?)` — scans a trial JSONL file
+  for integrity issues. Detects torn lines (truncated mid-JSON OR
+  schema-fail), duplicate `trial_id` collisions, agents not in a
+  `knownAgents` set (or appearing only once when set omitted), and
+  trials missing required metric fields. Returns a `ValidationReport`
+  with counts + offending IDs.
+- `detectEvalDrift(trials, heldOutPassRate, opts?)` and
+  `detectEvalDriftFromSplits(train, heldOut, opts?)` — compare train
+  vs held-out pass rates and flag drift when |delta| > threshold.
+  Default threshold 0.10 (10pp). Default minimum sample size 5 per
+  split — drift forced `false` for tiny samples to avoid noise on the
+  first few trials.
+
+### Not changed
+
+- `LLMJudge.evaluate()` return shape — unchanged. Still returns the flat
+  fields (`cost_usd`, `latency_ms`, `tokens?`) it has shipped since 0.2.0.
+  Consumers extract canonical shape via `toJudgeCost(result)`.
+- `BudgetMeter.reserve()` / `.release()` / `.spentToday()` / `.dailyCap()`
+  — all unchanged. S2 covers cost INGESTION only; full TTL/reserve/release
+  flow widening deferred.
+- All provider adapters (ollama, generic-openai, groq, gemini) — unchanged.
+- `sequentialRunner` — continues to pass `score.cost_usd` (a number) to
+  `meter.record()`. Backward-compatible call pattern retained.
+
 ## 0.3.1 (2026-06-29)
 
 **PATCH** — wires `OllamaConfig.temperature` through to the Ollama `/api/chat`
@@ -75,7 +192,10 @@ the install hint and the CI matrix can test SDK presence/absence.
 
 `peer-dep-matrix` GitHub Actions job: 3 OSes × 2 SDK states × 4 providers
 = 24 matrix cells. Verifies constructibility and `describe()` round-trip per
-cell. SLICE-109 will extend to 36 cells when azure + bedrock providers are added.
+cell. SLICE-109 (0.5.0) extends this to 30 cells by adding the azure-openai
+provider. Bedrock is intentionally excluded — per operator decision 2026-06-30
+(FEAT-183 wave-plan Q3), bedrock is dropped until an external consumer requests
+it. The previously noted "36 cells when azure + bedrock added" is retracted.
 
 ## 0.2.1 (2026-06-29)
 

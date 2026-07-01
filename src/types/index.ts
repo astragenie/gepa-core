@@ -5,3 +5,4 @@ export * from "./crew-artifact.ts";
 export * from "./agent-run.ts";
 export * from "./candidate.ts";
 export * from "./gepa-config.ts";
+export * from "./cost.ts";
