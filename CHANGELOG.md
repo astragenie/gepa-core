@@ -2,7 +2,7 @@
 
 All notable changes to `@astragenie/gepa-core` follow semantic versioning.
 
-## 0.4.0 (2026-06-30)
+## 0.5.0 (2026-07-01)
 
 **MINOR** — adds the cross-pipeline cost contract. Zero breaking changes;
 existing 0.3.x callers compile against this release without modification.
@@ -192,7 +192,10 @@ the install hint and the CI matrix can test SDK presence/absence.
 
 `peer-dep-matrix` GitHub Actions job: 3 OSes × 2 SDK states × 4 providers
 = 24 matrix cells. Verifies constructibility and `describe()` round-trip per
-cell. SLICE-109 will extend to 36 cells when azure + bedrock providers are added.
+cell. SLICE-109 (0.5.0) extends this to 30 cells by adding the azure-openai
+provider. Bedrock is intentionally excluded — per operator decision 2026-06-30
+(FEAT-183 wave-plan Q3), bedrock is dropped until an external consumer requests
+it. The previously noted "36 cells when azure + bedrock added" is retracted.
 
 ## 0.2.1 (2026-06-29)
 
