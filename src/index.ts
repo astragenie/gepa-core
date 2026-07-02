@@ -47,3 +47,20 @@ export {
   parseRubricMarkdown,
   type LoadRubricOpts,
 } from "./providers/load-rubric.ts";
+export {
+  evaluateSoak,
+  SOAK_ROLLING_WINDOW_MS,
+  type SoakTrial,
+  type SoakState,
+  type SoakPolicy,
+  type SoakVerdict,
+  type SoakVerdictStatus,
+} from "./algorithms/soak-monitor.ts";
+export {
+  evaluateGate,
+  DEFAULT_GATE_POLICY,
+  type CandidateMetrics,
+  type ChampionMetrics,
+  type GatePolicy,
+  type PromotionDecision,
+} from "./algorithms/promotion-gate.ts";

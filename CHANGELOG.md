@@ -2,6 +2,57 @@
 
 All notable changes to `@astragenie/gepa-core` follow semantic versioning.
 
+## 0.6.0 (2026-07-01)
+
+**MINOR** — adds soak-monitor algorithm and promotion-gate algorithm.
+Zero breaking changes; existing 0.5.x callers compile without modification.
+Consumers pinned to `^0.5.0` resolve this version automatically.
+
+### Added (FEAT-183 S7 — soak monitor + promotion gate)
+
+- `evaluateSoak(state, policy): SoakVerdict` — dual-clock soak monitor.
+  Implements the three-decision tree from the FEAT-183 design spec
+  (lines 631–652): early-revert on rolling 1-day window regression
+  (`soak_pass_rate < main_pass_rate - soakEpsilon`), insufficient-traffic
+  revert at `maxSoakDays` cap, promote when both `elapsed_days >= soakDays`
+  AND `soak_trials_count >= minSoakTrials`. Pure computation — no I/O;
+  caller owns soak.json reads, event logging, and forensics artifacts.
+  Resolved C13 (dual-clock prevents premature promotion on low-traffic
+  agents) and C20 (soak trial scoring path).
+- `SoakVerdict { status, elapsed_days, sample_count, reason, soak_pass_rate,
+  pass_rate_delta }` — returned by `evaluateSoak`. Status enum:
+  `"running" | "passed" | "failed" | "reverted"`.
+- `SoakTrial, SoakState, SoakPolicy` — input types for soak monitor.
+  `SoakState.now_iso` is clock-injectable for deterministic tests.
+- `SOAK_ROLLING_WINDOW_MS` — exported constant (24h in ms); shared with
+  crew-side dispatcher so the window definition is single-source.
+- `evaluateGate(candidate, champion, policy): PromotionDecision` — 5-condition
+  promotion gate. Conditions: pareto_rank === 1, held_out_pass >= champion +
+  minPassDelta, min_held_out_case_score >= minCaseScoreFloor (tail-risk),
+  cost_usd_delta <= 0 (unless allowCostRegression), latency_ms_delta <= 0
+  (unless allowLatencyRegression). All failing conditions collected (not
+  short-circuit) so callers see every blocker at once. Emits structured
+  `events` array (`gepa_tail_risk_block`, etc.) for caller to append to
+  events.jsonl. Resolved C24 (champion_frozen kill-switch — caller checks
+  frozen list before calling evaluateGate).
+- `DEFAULT_GATE_POLICY` — policy defaults matching gepa.config.json defaults:
+  `minPassDelta: 0.05, minCaseScoreFloor: 0.6, allowCostRegression: false,
+  allowLatencyRegression: false`.
+- `CandidateMetrics, ChampionMetrics, GatePolicy, PromotionDecision` — types
+  for the promotion gate.
+
+### Testing
+
+- `tests/algorithms/soak-monitor.test.ts` — 18 unit tests covering AC-2
+  (dual-clock), AC-3 (sample-floor + insufficient-traffic revert at maxSoakDays),
+  AC-4 (early-revert 30pp regression), rolling-window stale-trial exclusion,
+  and priority ordering (early-revert beats maxSoakDays revert). All 206
+  tests pass (gepa-core suite).
+- `tests/algorithms/promotion-gate.test.ts` — 10 unit tests covering AC-5
+  (happy path + detail snapshot), AC-6 (tail_risk_block), AC-7
+  (min_pass_delta_not_met + not_pareto_rank_1 multi-blocker accumulation),
+  regression flags, boundary values, and all-fail accumulation.
+
 ## 0.5.0 (2026-07-01)
 
 **MINOR** — adds the cross-pipeline cost contract. Zero breaking changes;
